@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
 <title>SIM Database – M Usman Chachar</title>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet"/>
 <style>
@@ -57,9 +57,11 @@
   .badge {
     background: var(--green);
     color: #000;
-    font-size: .65rem; font-weight: 700;
+    font-size: .6rem; font-weight: 700;
     padding: 3px 10px; border-radius: 20px;
     letter-spacing: 1px;
+    white-space: nowrap;
+    flex-shrink: 0;
   }
 
   /* ── OWNER CARD ── */
@@ -134,9 +136,9 @@
     background: var(--green);
     color: #000;
     border: none; border-radius: 10px;
-    padding: 14px 28px;
+    padding: 12px 18px;
     font-family: 'Orbitron', sans-serif;
-    font-size: .8rem; font-weight: 700;
+    font-size: .72rem; font-weight: 700;
     letter-spacing: 1px;
     cursor: pointer;
     transition: transform .15s, box-shadow .2s;
@@ -289,10 +291,17 @@
       </div>`;
 
     try {
-      const res = await fetch('https://sim-info-api.wasif-ali.workers.dev/?search=' + encodeURIComponent(num));
+      const res = await fetch('https://sim-info-api.wasif-ali.workers.dev/?search=' + encodeURIComponent(num), {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36',
+          'Accept': 'application/json'
+        }
+      });
       const data = await res.json();
 
-      if (!data || data.error || (Array.isArray(data) && data.length === 0)) {
+      // API format: {success, count, records:[{name,mobile,cnic,address,network}]}
+      const records = data?.records;
+      if (!data?.success || !Array.isArray(records) || records.length === 0) {
         card.innerHTML = `
           <div class="state-box">
             <div class="state-icon">❌</div>
@@ -301,31 +310,33 @@
         return;
       }
 
-      const d = Array.isArray(data) ? data[0] : data;
-      const fields = [
-        ['Name', d.name || d.Name || d.subscriber_name || '—'],
-        ['CNIC', d.cnic || d.CNIC || d.id_card || '—'],
-        ['Number', d.mobile || d.number || d.phone || num],
-        ['Network', d.network || d.operator || d.company || '—'],
-        ['Address', d.address || d.Address || '—'],
-        ['City', d.city || d.City || '—'],
-        ['Status', d.status || d.Status || 'Active'],
-        ['Registered', d.date || d.reg_date || d.registration_date || '—'],
-      ];
+      let recordsHTML = '';
+      records.forEach((d, idx) => {
+        const fields = [
+          ['Name', d.name || '—'],
+          ['CNIC', d.cnic || '—'],
+          ['Mobile', d.mobile || num],
+          ['Network', d.network || '—'],
+          ['Address', d.address || '—'],
+        ];
+        recordsHTML += `
+          ${records.length > 1 ? `<div style="padding:10px 24px 0;font-size:.75rem;color:var(--green);letter-spacing:2px;">RECORD ${idx+1}</div>` : ''}
+          <div class="result-grid">
+            ${fields.map(([label, val]) => `
+              <div class="result-item">
+                <div class="r-label">${label}</div>
+                <div class="r-value">${val}</div>
+              </div>
+            `).join('')}
+          </div>`;
+      });
 
       card.innerHTML = `
         <div class="result-header">
           <div class="dot"></div>
-          <span>RECORD FOUND — ${num}</span>
+          <span>RECORD FOUND — ${num} (${records.length})</span>
         </div>
-        <div class="result-grid">
-          ${fields.map(([label, val]) => `
-            <div class="result-item">
-              <div class="r-label">${label}</div>
-              <div class="r-value ${label==='Status'?'green':''}">${val}</div>
-            </div>
-          `).join('')}
-        </div>`;
+        ${recordsHTML}`;
 
     } catch(e) {
       card.innerHTML = `
